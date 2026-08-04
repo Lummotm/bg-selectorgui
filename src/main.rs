@@ -1,6 +1,8 @@
 use std::{
+    fmt::format,
     fs::{self},
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use eframe::egui::debug_text::print;
@@ -103,4 +105,19 @@ fn get_or_create_thumbnail(path: &Path) -> Option<PathBuf> {
     println!("Thumbnail generated on {}", thumb_path.display());
 
     Some(thumb_path)
+}
+
+fn select_wallpaper(path: &Path) {
+    let cmd = "awww"; // Such a cutie patoi
+    let transition = random_transition();
+
+    let params = format!(
+        "img {} --transition-type {} --transition-step 60 --transition-fps 120 ",
+        path.display(),
+        transition
+    );
+}
+
+fn random_transition() -> String {
+    todo!()
 }
