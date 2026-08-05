@@ -1,18 +1,15 @@
 use std::{
-    fmt::format,
     fs::{self},
     path::{Path, PathBuf},
     process::Command,
 };
 
-use image::{imageops::thumbnail, io::Reader};
 use rand::prelude::*;
 use walkdir::WalkDir;
 
 fn main() {
     println!("Starting bgselector!!!");
     let wallpapers = scan_wallpapers();
-    let home = dirs::home_dir().expect("Couldnt find home dir.");
     let index = get_random_integer(wallpapers.len());
     let random_wallpaper = &wallpapers[index];
     select_wallpaper(random_wallpaper);
