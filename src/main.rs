@@ -5,14 +5,16 @@ use std::{
     process::Command,
 };
 
-use eframe::egui::debug_text::print;
 use image::{imageops::thumbnail, io::Reader};
+use rand::prelude::*;
 use walkdir::WalkDir;
 
 fn main() {
     println!("Starting bgselector!!!");
     let fondos = scan_wallpapers();
     println!("Found {} wallpapers.", fondos.len());
+    let home = dirs::home_dir().expect("Couldnt find home dir.");
+    select_wallpaper(&home.join("Pictures/Wallpapers"));
 }
 
 struct Wallpaper {
@@ -108,16 +110,33 @@ fn get_or_create_thumbnail(path: &Path) -> Option<PathBuf> {
 }
 
 fn select_wallpaper(path: &Path) {
-    let cmd = "awww"; // Such a cutie patoi
     let transition = random_transition();
 
-    let params = format!(
-        "img {} --transition-type {} --transition-step 60 --transition-fps 120 ",
-        path.display(),
-        transition
-    );
+    let cmd = Command::new("awww")
+        .arg("img")
+        .arg(path)
+        .arg("--transition-type")
+        .arg(transition)
+        .arg("--transition-step")
+        .arg("60")
+        .arg("--transition-fps")
+        .arg("120")
+        .spawn();
+
+    match cmd {
+        Ok(_) => println!("Wallpaper changed to {}", path.display()),
+        Err(e) => eprintln!("Error when executing awww: {}", e),
+    }
 }
 
 fn random_transition() -> String {
-    todo!()
+    let transitions = ["wipe", "grow", "wave"];
+    let n = transitions.len();
+    let index = get_random_integer(n);
+    transitions[index].to_string()
+}
+
+fn get_random_integer(last: usize) -> usize {
+    let mut rng = rand::rng();
+    rng.random_range(0..last)
 }
