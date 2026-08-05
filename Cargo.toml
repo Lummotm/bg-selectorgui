@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eframe = "0.27"
-egui_extras = { version = "0.27", features = ["image"] }
 image = { version = "0.24", features = ["jpeg", "png", "webp"] }
 dirs = "5.0"
 walkdir = "2.5.0"
+slint = "1.17.1"
+rand = "0.10.2"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
