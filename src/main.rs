@@ -1,6 +1,6 @@
 // Based on https://github.com/magetsu002/qs-wallpaper-picker
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     fs::{self, OpenOptions},
     path::{Path, PathBuf},
     process::Command,
@@ -13,12 +13,35 @@ use walkdir::WalkDir;
 
 fn main() {
     println!("Starting bgselector!!!");
-    let wallpapers = scan_wallpapers();
-    // let index = get_random_integer(wallpapers.len());
-    // let random_wallpaper = &wallpapers[index];
-    // select_wallpaper(random_wallpaper);
+
+    let home = dirs::home_dir().expect("CRÍTICO: No se encontró HOME");
+    let cache_dir = home.join(".cache/bg-selector-gui/");
+    let colors_file = cache_dir.join("colors.txt");
+    let wallpapers_dir = home.join("Pictures/Wallpapers/00-tmp/");
+
+    fs::create_dir_all(&cache_dir).expect("CRÍTICO: No se pudo crear la carpeta de caché");
+
+    // Read first cache
+    let cached_colors = read_colors_file(&colors_file);
+
+    // Scan using the cache
+    let wallpapers = scan_wallpapers(&wallpapers_dir, &cache_dir, &cached_colors);
+
+    if wallpapers.is_empty() {
+        eprintln!("No se encontraron imágenes en la carpeta de wallpapers.");
+        return;
+    }
+
+    todo!("Accept argumnets on binary, if using --reload it regens all the cache");
+
+    let index = get_random_integer(wallpapers.len());
+    select_wallpaper(&wallpapers[index]);
+
+    // Cache uncached ones
+    cache_uncached(&colors_file, &wallpapers, &cached_colors);
 }
 
+// Adaptamos esta función para usar el HashMap que ya leímos antes
 struct Wallpaper {
     name: String,
     path: PathBuf,
@@ -26,41 +49,27 @@ struct Wallpaper {
     hex_color: String,
 }
 
-fn scan_wallpapers() -> Vec<Wallpaper> {
+fn scan_wallpapers(
+    target_dir: &Path,
+    cache_dir: &Path,
+    cached_colors: &HashMap<String, String>,
+) -> Vec<Wallpaper> {
     let mut wallpapers = Vec::new();
     let valid_formats = ["jpg", "jpeg", "png", "webp", "gif"];
 
-    let Some(home) = dirs::home_dir() else {
-        println!("Couldnt find HOME.");
-        return wallpapers;
-    };
-
-    let target_dir = home.join("Pictures/Wallpapers/00-tmp/");
-
-    if !target_dir.exists() {
-        println!("La carpeta {:?} no existe.", target_dir);
-        return wallpapers;
-    }
-
     for entry in WalkDir::new(target_dir).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
-
         if !path.is_file() {
             continue;
-        };
+        }
         let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
             continue;
         };
         if !valid_formats.contains(&ext.to_lowercase().as_str()) {
             continue;
-        };
-        // No se pq hay que printear con :?, jsjs :/ confused, :? even more confused JSJSJSJS
+        }
 
         let stem_option = path.file_stem();
-
-        // Abrimos la caja del Option<&OsStr> y si es None hacemos continue
-        // No entiendo a que se refiere con abrir la caja Option, supongo que sera que probamos a
-        // cargar el valor
         let Some(stem_os) = stem_option else {
             continue;
         };
@@ -69,14 +78,19 @@ fn scan_wallpapers() -> Vec<Wallpaper> {
         };
         let name = stem_str.to_string();
 
-        let thumbnail_path = match get_or_create_thumbnail(path) {
+        let thumbnail_path = match get_or_create_thumbnail(path, cache_dir) {
             Some(thumb) => thumb,
-            None => path.to_path_buf(), // Si falla la miniatura, usamos la original como fallback
+            None => path.to_path_buf(),
         };
 
-        let hex_color = extract_color_from_image(path);
+        let hex_color = match cached_colors.get(&name) {
+            Some(saved_color) => saved_color.clone(),
+            None => {
+                println!("Fondo nuevo detectado. Extrayendo color para: {}", name);
+                extract_color_from_image(path)
+            }
+        };
 
-        println!("Found image: {}\nColor: {}", path.display(), hex_color);
         wallpapers.push(Wallpaper {
             name,
             path: path.to_path_buf(),
@@ -87,35 +101,24 @@ fn scan_wallpapers() -> Vec<Wallpaper> {
     wallpapers
 }
 
-fn extract_color_from_image(path: &Path) -> String {
-    let Ok(img) = image::open(path) else {
-        return "#888888".to_string();
-    };
-    // Get the main color on the image
-    let pixel_img = img.resize_exact(1, 1, FilterType::Nearest);
-    let pixel = pixel_img.get_pixel(0, 0);
-    format!("#{:02X}{:02X}{:02X}", pixel[0], pixel[1], pixel[2])
-}
-
 // Pedimos referencia a un path, un id que no vamos a modificar representa una direccion de la que
 // no somos dueños podemos mirar pero no tocar wazaaaa
-fn get_or_create_thumbnail(path: &Path) -> Option<PathBuf> {
-    let Some(home) = dirs::home_dir() else {
-        println!("Couldnt find HOME.");
-        return None;
-    };
-    let thumbnail_dir = home.join(".cache/bg-selector-gui/");
-    fs::create_dir_all(&thumbnail_dir) // Is clippy the goat?
+fn get_or_create_thumbnail(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option<PathBuf> {
+    fs::create_dir_all(thumbnail_dir)
         .unwrap_or_else(|_| panic!("No se pudo crear carpeta {}", thumbnail_dir.display()));
 
-    let filename = path.file_name()?.to_str()?;
-    let thumb_path = thumbnail_dir.join(format!("tumb_{}", filename));
+    // Extract name without extension (not mistype gifs)
+    let stem = wallpaper_path.file_stem()?.to_str()?;
+
+    // Force .png
+    let thumb_path = thumbnail_dir.join(format!("tumb_{}.png", stem));
 
     if thumb_path.exists() {
         return Some(thumb_path);
     };
 
-    let img = image::open(path).ok()?;
+    let img = image::open(wallpaper_path).ok()?;
+
     let thumb = img.thumbnail(2000, 420);
 
     thumb.save(&thumb_path).ok()?;
@@ -146,32 +149,33 @@ fn select_wallpaper(wallpaper: &Wallpaper) {
     }
 }
 
-fn random_transition() -> String {
-    let transitions = ["wipe", "grow", "wave"];
-    let n = transitions.len();
-    let index = get_random_integer(n);
-    transitions[index].to_string()
-}
-
-fn get_random_integer(count: usize) -> usize {
-    let mut rng = rand::rng();
-    rng.random_range(0..count)
-}
-
-fn read_colors_file(path: &Path) -> Vec<String> {
-    let mut names = Vec::new();
+fn read_colors_file(path: &Path) -> HashMap<String, String> {
+    println!("Extracting colors from {}", path.display());
+    let mut names = HashMap::new();
     if let Ok(content) = fs::read_to_string(path) {
         for line in content.lines() {
             let parts: Vec<&str> = line.split(" :: ").collect();
-            if parts.len() == 2 {
+            if parts.len() >= 2 {
+                // has to be 2 might add more stuff later
                 let name = parts[0];
-                names.push(name.to_string());
+                let hex = parts[1];
+                names.insert(name.to_string(), hex.to_string());
             }
         }
     } else {
-        println!("El archivo no existe.")
+        println!("File doesn't exist. Will generate later.")
     }
     names
+}
+
+fn extract_color_from_image(path: &Path) -> String {
+    let Ok(img) = image::open(path) else {
+        return "#888888".to_string();
+    };
+    // Get the main color on the image
+    let pixel_img = img.resize_exact(1, 1, FilterType::Nearest);
+    let pixel = pixel_img.get_pixel(0, 0);
+    format!("#{:02X}{:02X}{:02X}", pixel[0], pixel[1], pixel[2])
 }
 
 fn append_colors_to_file(colors_file: &Path, name: &str, hex: &str) {
@@ -193,4 +197,29 @@ fn append_colors_to_file(colors_file: &Path, name: &str, hex: &str) {
         Ok(_) => {}
         Err(e) => eprintln!("Error writing to {}\n[ERROR]{}", colors_file.display(), e),
     }
+}
+
+fn cache_uncached(
+    colors_file: &Path,
+    wallpapers: &[Wallpaper],
+    cached_colors: &HashMap<String, String>,
+) {
+    for wallpaper in wallpapers {
+        // If name not in cached the cache it
+        if !cached_colors.contains_key(&wallpaper.name) {
+            append_colors_to_file(colors_file, &wallpaper.name, &wallpaper.hex_color);
+        }
+    }
+}
+
+fn random_transition() -> String {
+    let transitions = ["wipe", "grow", "wave"];
+    let n = transitions.len();
+    let index = get_random_integer(n);
+    transitions[index].to_string()
+}
+
+fn get_random_integer(count: usize) -> usize {
+    let mut rng = rand::rng();
+    rng.random_range(0..count)
 }
