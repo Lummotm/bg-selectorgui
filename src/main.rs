@@ -11,10 +11,11 @@ use walkdir::WalkDir;
 
 fn main() {
     println!("Starting bgselector!!!");
-    let fondos = scan_wallpapers();
-    println!("Found {} wallpapers.", fondos.len());
+    let wallpapers = scan_wallpapers();
     let home = dirs::home_dir().expect("Couldnt find home dir.");
-    select_wallpaper(&home.join("Pictures/Wallpapers"));
+    let index = get_random_integer(wallpapers.len());
+    let random_wallpaper = &wallpapers[index];
+    select_wallpaper(random_wallpaper);
 }
 
 struct Wallpaper {
@@ -54,7 +55,7 @@ fn scan_wallpapers() -> Vec<Wallpaper> {
         if !valid_formats.contains(&ext.to_lowercase().as_str()) {
             continue;
         };
-        println!("Found image {:?}", path);
+        // println!("Found image {:?}", path);
         // No se pq hay que printear con :?, jsjs :/ confused, :? even more confused JSJSJSJS
 
         let stem_option = path.file_stem();
@@ -109,8 +110,9 @@ fn get_or_create_thumbnail(path: &Path) -> Option<PathBuf> {
     Some(thumb_path)
 }
 
-fn select_wallpaper(path: &Path) {
+fn select_wallpaper(wallpaper: &Wallpaper) {
     let transition = random_transition();
+    let path = &wallpaper.path;
 
     let cmd = Command::new("awww")
         .arg("img")
@@ -124,7 +126,7 @@ fn select_wallpaper(path: &Path) {
         .spawn();
 
     match cmd {
-        Ok(_) => println!("Wallpaper changed to {}", path.display()),
+        Ok(_) => println!("Wallpaper changed to {}", &wallpaper.name),
         Err(e) => eprintln!("Error when executing awww: {}", e),
     }
 }
