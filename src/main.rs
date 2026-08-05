@@ -1,24 +1,27 @@
+// Based on https://github.com/magetsu002/qs-wallpaper-picker
 use std::{
     fs::{self},
     path::{Path, PathBuf},
     process::Command,
 };
 
+use image::{imageops::FilterType, GenericImageView}; // Needed to main color from the image
 use rand::prelude::*;
 use walkdir::WalkDir;
 
 fn main() {
     println!("Starting bgselector!!!");
     let wallpapers = scan_wallpapers();
-    let index = get_random_integer(wallpapers.len());
-    let random_wallpaper = &wallpapers[index];
-    select_wallpaper(random_wallpaper);
+    // let index = get_random_integer(wallpapers.len());
+    // let random_wallpaper = &wallpapers[index];
+    // select_wallpaper(random_wallpaper);
 }
 
 struct Wallpaper {
     name: String,
     path: PathBuf,
     thumbnail_path: PathBuf,
+    hex_color: String,
 }
 
 fn scan_wallpapers() -> Vec<Wallpaper> {
@@ -33,7 +36,7 @@ fn scan_wallpapers() -> Vec<Wallpaper> {
         }
     };
 
-    let target_dir = home.join("Pictures/Wallpapers/0-god/");
+    let target_dir = home.join("Pictures/Wallpapers/00-tmp/");
 
     if !target_dir.exists() {
         println!("La carpeta {:?} no existe.", target_dir);
@@ -52,7 +55,6 @@ fn scan_wallpapers() -> Vec<Wallpaper> {
         if !valid_formats.contains(&ext.to_lowercase().as_str()) {
             continue;
         };
-        // println!("Found image {:?}", path);
         // No se pq hay que printear con :?, jsjs :/ confused, :? even more confused JSJSJSJS
 
         let stem_option = path.file_stem();
@@ -73,13 +75,27 @@ fn scan_wallpapers() -> Vec<Wallpaper> {
             None => path.to_path_buf(), // Si falla la miniatura, usamos la original como fallback
         };
 
+        let hex_color = extract_color_from_image(path);
+
+        println!("Found image: {}\nColor: {}", path.display(), hex_color);
         wallpapers.push(Wallpaper {
             name,
             path: path.to_path_buf(),
             thumbnail_path,
-        })
+            hex_color,
+        });
     }
     wallpapers
+}
+
+fn extract_color_from_image(path: &Path) -> String {
+    let Ok(img) = image::open(path) else {
+        return "#888888".to_string();
+    };
+    // Get the main color on the image
+    let pixel_img = img.resize_exact(1, 1, FilterType::Nearest);
+    let pixel = pixel_img.get_pixel(0, 0);
+    format!("#{:02X}{:02X}{:02X}", pixel[0], pixel[1], pixel[2])
 }
 
 // Pedimos referencia a un path, un id que no vamos a modificar representa una direccion de la que
@@ -98,7 +114,7 @@ fn get_or_create_thumbnail(path: &Path) -> Option<PathBuf> {
     };
 
     let img = image::open(path).ok()?;
-    let thumb = img.thumbnail(640, 360);
+    let thumb = img.thumbnail(2000, 420);
 
     thumb.save(&thumb_path).ok()?;
 
