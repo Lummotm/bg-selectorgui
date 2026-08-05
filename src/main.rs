@@ -30,12 +30,9 @@ fn scan_wallpapers() -> Vec<Wallpaper> {
     let mut wallpapers = Vec::new();
     let valid_formats = ["jpg", "jpeg", "png", "webp", "gif"];
 
-    let home = match dirs::home_dir() {
-        Some(path) => path,
-        None => {
-            println!("Couldnt find HOME.");
-            return wallpapers;
-        }
+    let Some(home) = dirs::home_dir() else {
+        println!("Couldnt find HOME.");
+        return wallpapers;
     };
 
     let target_dir = home.join("Pictures/Wallpapers/00-tmp/");
@@ -103,12 +100,15 @@ fn extract_color_from_image(path: &Path) -> String {
 // Pedimos referencia a un path, un id que no vamos a modificar representa una direccion de la que
 // no somos dueños podemos mirar pero no tocar wazaaaa
 fn get_or_create_thumbnail(path: &Path) -> Option<PathBuf> {
-    let home = dirs::home_dir().expect("Error. Home not found.");
+    let Some(home) = dirs::home_dir() else {
+        println!("Couldnt find HOME.");
+        return None;
+    };
     let thumbnail_dir = home.join(".cache/bg-selector-gui/");
-    fs::create_dir_all(&thumbnail_dir)
+    fs::create_dir_all(&thumbnail_dir) // Is clippy the goat?
         .unwrap_or_else(|_| panic!("No se pudo crear carpeta {}", thumbnail_dir.display()));
 
-    let filename = &path.file_name()?.to_str()?;
+    let filename = path.file_name()?.to_str()?;
     let thumb_path = thumbnail_dir.join(format!("tumb_{}", filename));
 
     if thumb_path.exists() {
@@ -153,9 +153,9 @@ fn random_transition() -> String {
     transitions[index].to_string()
 }
 
-fn get_random_integer(last: usize) -> usize {
+fn get_random_integer(count: usize) -> usize {
     let mut rng = rand::rng();
-    rng.random_range(0..last)
+    rng.random_range(0..count)
 }
 
 fn read_colors_file(path: &Path) -> Vec<String> {
