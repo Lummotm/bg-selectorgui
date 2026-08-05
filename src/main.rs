@@ -1,12 +1,14 @@
 // Based on https://github.com/magetsu002/qs-wallpaper-picker
 use std::{
-    fs::{self},
+    collections::HashSet,
+    fs::{self, OpenOptions},
     path::{Path, PathBuf},
     process::Command,
 };
 
 use image::{imageops::FilterType, GenericImageView}; // Needed to main color from the image
 use rand::prelude::*;
+use std::io::Write;
 use walkdir::WalkDir;
 
 fn main() {
@@ -154,4 +156,41 @@ fn random_transition() -> String {
 fn get_random_integer(last: usize) -> usize {
     let mut rng = rand::rng();
     rng.random_range(0..last)
+}
+
+fn read_colors_file(path: &Path) -> Vec<String> {
+    let mut names = Vec::new();
+    if let Ok(content) = fs::read_to_string(path) {
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split(" :: ").collect();
+            if parts.len() == 2 {
+                let name = parts[0];
+                names.push(name.to_string());
+            }
+        }
+    } else {
+        println!("El archivo no existe.")
+    }
+    names
+}
+
+fn append_colors_to_file(colors_file: &Path, name: &str, hex: &str) {
+    let mut file = match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(colors_file)
+    {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Error opening {}.\n[ERROR] {}", colors_file.display(), e);
+            return;
+        }
+    };
+
+    let result = writeln!(file, "{} :: {}", name, hex);
+
+    match result {
+        Ok(_) => {}
+        Err(e) => eprintln!("Error writing to {}\n[ERROR]{}", colors_file.display(), e),
+    }
 }
