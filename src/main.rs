@@ -1,38 +1,56 @@
 // Based on https://github.com/magetsu002/qs-wallpaper-picker
 use std::{
     collections::HashMap,
+    env,
     fs::{self, OpenOptions},
     path::{Path, PathBuf},
     process::Command,
 };
 
+use dirs::cache_dir;
 use image::{imageops::FilterType, GenericImageView}; // Needed to main color from the image
 use rand::prelude::*;
 use std::io::Write;
 use walkdir::WalkDir;
 
+fn initialize() {}
+
 fn main() {
     println!("Starting bgselector!!!");
-
     let home = dirs::home_dir().expect("CRÍTICO: No se encontró HOME");
     let cache_dir = home.join(".cache/bg-selector-gui/");
+    let thumbnail_dir = cache_dir.join("thumbnails/");
     let colors_file = cache_dir.join("colors.txt");
     let wallpapers_dir = home.join("Pictures/Wallpapers/00-tmp/");
 
-    fs::create_dir_all(&cache_dir).expect("CRÍTICO: No se pudo crear la carpeta de caché");
+    let args: Vec<String> = env::args().collect();
+    dbg!(&args); // arg[0] is the binary, else is the other stuff
+
+    for arg in args.iter().skip(1) {
+        match arg.as_str() {
+            "--reload" => {
+                println!("Regenerating all cache.");
+                fs::remove_dir_all(&thumbnail_dir).expect("Error removing thumbanail dir.");
+            }
+            "--cache" => {
+                println!("Update thumbnails withouth launchings GUI.")
+            }
+            _ => {}
+        }
+    }
+
+    fs::create_dir_all(&thumbnail_dir).expect("CRÍTICO: No se pudo crear la carpeta de caché");
 
     // Read first cache
     let cached_colors = read_colors_file(&colors_file);
 
     // Scan using the cache
-    let wallpapers = scan_wallpapers(&wallpapers_dir, &cache_dir, &cached_colors);
+    let wallpapers = scan_wallpapers(&wallpapers_dir, &thumbnail_dir, &cached_colors);
 
     if wallpapers.is_empty() {
         eprintln!("No se encontraron imágenes en la carpeta de wallpapers.");
         return;
     }
-
-    todo!("Accept argumnets on binary, if using --reload it regens all the cache");
 
     let index = get_random_integer(wallpapers.len());
     select_wallpaper(&wallpapers[index]);
@@ -41,7 +59,6 @@ fn main() {
     cache_uncached(&colors_file, &wallpapers, &cached_colors);
 }
 
-// Adaptamos esta función para usar el HashMap que ya leímos antes
 struct Wallpaper {
     name: String,
     path: PathBuf,
@@ -51,7 +68,7 @@ struct Wallpaper {
 
 fn scan_wallpapers(
     target_dir: &Path,
-    cache_dir: &Path,
+    thumbnail_dir: &Path,
     cached_colors: &HashMap<String, String>,
 ) -> Vec<Wallpaper> {
     let mut wallpapers = Vec::new();
@@ -78,7 +95,7 @@ fn scan_wallpapers(
         };
         let name = stem_str.to_string();
 
-        let thumbnail_path = match get_or_create_thumbnail(path, cache_dir) {
+        let thumbnail_path = match get_or_create_thumbnail(path, thumbnail_dir) {
             Some(thumb) => thumb,
             None => path.to_path_buf(),
         };
@@ -101,8 +118,6 @@ fn scan_wallpapers(
     wallpapers
 }
 
-// Pedimos referencia a un path, un id que no vamos a modificar representa una direccion de la que
-// no somos dueños podemos mirar pero no tocar wazaaaa
 fn get_or_create_thumbnail(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option<PathBuf> {
     fs::create_dir_all(thumbnail_dir)
         .unwrap_or_else(|_| panic!("No se pudo crear carpeta {}", thumbnail_dir.display()));
@@ -149,10 +164,10 @@ fn select_wallpaper(wallpaper: &Wallpaper) {
     }
 }
 
-fn read_colors_file(path: &Path) -> HashMap<String, String> {
-    println!("Extracting colors from {}", path.display());
+fn read_colors_file(colors_file_path: &Path) -> HashMap<String, String> {
+    println!("Extracting colors from {}", colors_file_path.display());
     let mut names = HashMap::new();
-    if let Ok(content) = fs::read_to_string(path) {
+    if let Ok(content) = fs::read_to_string(colors_file_path) {
         for line in content.lines() {
             let parts: Vec<&str> = line.split(" :: ").collect();
             if parts.len() >= 2 {
@@ -168,8 +183,8 @@ fn read_colors_file(path: &Path) -> HashMap<String, String> {
     names
 }
 
-fn extract_color_from_image(path: &Path) -> String {
-    let Ok(img) = image::open(path) else {
+fn extract_color_from_image(picture: &Path) -> String {
+    let Ok(img) = image::open(picture) else {
         return "#888888".to_string();
     };
     // Get the main color on the image
