@@ -1,37 +1,29 @@
 use crate::wallpaper::Wallpaper;
-use rand::prelude::*;
 use std::process::Command;
 
-pub fn select_wallpaper(wallpaper: &Wallpaper) {
-    let transition = random_transition();
-    let path = &wallpaper.path;
+pub fn process_selection(wallpaper: &Wallpaper, print_only: bool, custom_cmd: Option<&str>) {
+    let path_str = wallpaper.path.to_string_lossy();
 
-    let cmd = Command::new("awww")
-        .arg("img")
-        .arg(path)
-        .arg("--transition-type")
-        .arg(transition)
-        .arg("--transition-step")
-        .arg("60")
-        .arg("--transition-fps")
-        .arg("120")
-        .spawn();
-
-    match cmd {
-        Ok(_) => println!("Wallpaper changed to {}", &wallpaper.name),
-        Err(e) => eprintln!("Error when executing awww: {}", e),
+    if print_only {
+        println!("{}", path_str);
+        return;
     }
-}
 
-fn random_transition() -> String {
-    // Mirrors WallpaperPicker.qml's `safeTransitions` list.
-    let transitions = ["fade", "wipe", "wave", "grow", "center", "outer"];
-    let n = transitions.len();
-    let index = get_random_integer(n);
-    transitions[index].to_string()
-}
-
-fn get_random_integer(count: usize) -> usize {
-    let mut rng = rand::rng();
-    rng.random_range(0..count)
+    if let Some(cmd) = custom_cmd {
+        if let Err(e) = Command::new(cmd).arg(path_str.as_ref()).spawn() {
+            eprintln!("Error executing '{}': {}", cmd, e);
+        }
+    } else {
+        // Default fallback to awww
+        let _ = Command::new("awww")
+            .arg("img")
+            .arg(path_str.as_ref())
+            .arg("--transition-type")
+            .arg("fade")
+            .arg("--transition-step")
+            .arg("60")
+            .arg("--transition-fps")
+            .arg("120")
+            .spawn();
+    }
 }
