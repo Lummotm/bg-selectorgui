@@ -13,6 +13,68 @@ pub struct Wallpaper {
     pub path: PathBuf,
     pub thumbnail_path: PathBuf,
     pub hex_color: String,
+    pub color_bucket: String,
+}
+
+/// Ports WallpaperPicker.qml's `getHexBucket()` HSV bucketing logic.
+pub fn hex_to_bucket(hex: &str) -> String {
+    let cleaned: String = hex.trim().chars().filter(|c| *c != '#').collect();
+    if cleaned.len() < 6 {
+        return "Monochrome".to_string();
+    }
+    let cleaned = &cleaned[..6];
+
+    let parse = |s: &str| -> Option<f32> { u8::from_str_radix(s, 16).ok().map(|v| v as f32 / 255.0) };
+    let (Some(r), Some(g), Some(b)) = (
+        parse(&cleaned[0..2]),
+        parse(&cleaned[2..4]),
+        parse(&cleaned[4..6]),
+    ) else {
+        return "Monochrome".to_string();
+    };
+
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let d = max - min;
+
+    let s = if max == 0.0 { 0.0 } else { d / max };
+    let v = max;
+
+    let mut h = if d == 0.0 {
+        0.0
+    } else if max == r {
+        60.0 * (((g - b) / d).rem_euclid(6.0))
+    } else if max == g {
+        60.0 * (((b - r) / d) + 2.0)
+    } else {
+        60.0 * (((r - g) / d) + 4.0)
+    };
+    if h < 0.0 {
+        h += 360.0;
+    }
+
+    if s < 0.05 || v < 0.08 {
+        return "Monochrome".to_string();
+    }
+
+    if !(15.0..345.0).contains(&h) {
+        "Red"
+    } else if h < 45.0 {
+        "Orange"
+    } else if h < 75.0 {
+        "Yellow"
+    } else if h < 165.0 {
+        "Green"
+    } else if h < 260.0 {
+        "Blue"
+    } else if h < 315.0 {
+        "Purple"
+    } else if h < 345.0 {
+        "Pink"
+    } else {
+        "Monochrome"
+    }
+    .to_string()
 }
 
 pub fn scan_wallpapers(
@@ -57,11 +119,14 @@ pub fn scan_wallpapers(
             }
         };
 
+        let color_bucket = hex_to_bucket(&hex_color);
+
         wallpapers.push(Wallpaper {
             name,
             path: path.to_path_buf(),
             thumbnail_path,
             hex_color,
+            color_bucket,
         });
     }
     wallpapers

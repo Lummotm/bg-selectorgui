@@ -24,7 +24,8 @@ pub fn select_wallpaper(wallpaper: &Wallpaper) {
 }
 
 fn random_transition() -> String {
-    let transitions = ["wipe", "grow", "wave"];
+    // Mirrors WallpaperPicker.qml's `safeTransitions` list.
+    let transitions = ["fade", "wipe", "wave", "grow", "center", "outer"];
     let n = transitions.len();
     let index = get_random_integer(n);
     transitions[index].to_string()

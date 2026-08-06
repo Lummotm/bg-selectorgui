@@ -1,0 +1,256 @@
+export struct WallpaperData {
+  name: string,
+  image_path: image,
+  color_bucket: string,
+  visible: bool,
+  }
+
+export struct FilterButton {
+  name: string,
+  color: color,
+  is-swatch: bool,
+  }
+
+export component AppWindow inherits Window {
+  title: "bgselector-gui";
+  width: 1920px;
+  height: 1080px;
+  background: transparent;
+
+  in property <[WallpaperData]> wallpapers;
+  in-out property <int> active-index: 0;
+  in property <string> current-filter: "All";
+  in property <string> status-text: "";
+  in-out property <string> search-text: "";
+  in property <bool> search-mode: false;
+
+  callback wallpaper-selected(string);
+  callback step-requested(int);       // -1 / +1, skips filtered-out items (handled in Rust)
+  callback cycle-filter(int);         // -1 / +1
+  callback set-filter(string);
+  callback search-changed(string);
+  callback toggle-search();
+  callback close-requested();
+
+  property <[FilterButton]> filter-buttons: [
+  { name: "All", color: #888888, is-swatch: false },
+  { name: "Red", color: #ff4500, is-swatch: true },
+  { name: "Orange", color: #ffa500, is-swatch: true },
+  { name: "Yellow", color: #ffd700, is-swatch: true },
+  { name: "Green", color: #32cd32, is-swatch: true },
+  { name: "Blue", color: #1e90ff, is-swatch: true },
+  { name: "Purple", color: #8a2be2, is-swatch: true },
+  { name: "Pink", color: #ff69b4, is-swatch: true },
+  { name: "Monochrome", color: #aaaaaa, is-swatch: true },
+  ];
+
+  forward-focus: key-handler;
+
+  key-handler := FocusScope {
+    key-pressed(event) => {
+      if (root.search-mode) {
+        if (event.text == Key.Escape) {
+          root.toggle-search();
+          accept
+          } else {
+          reject
+          }
+        } else if (event.text == Key.LeftArrow) {
+        root.step-requested(-1);
+        accept
+        } else if (event.text == Key.RightArrow) {
+        root.step-requested(1);
+        accept
+        } else if (event.text == Key.Tab) {
+        root.cycle-filter(event.modifiers.shift ? -1 : 1);
+        accept
+        } else if (event.text == "/") {
+        root.toggle-search();
+        accept
+        } else if (event.text == Key.Return) {
+        if (root.active-index >= 0 && root.active-index < root.wallpapers.length) {
+          root.wallpaper-selected(root.wallpapers[root.active-index].name);
+          }
+        accept
+        } else if (event.text == Key.Escape) {
+        root.close-requested();
+        accept
+        } else {
+        reject
+        }
+      }
+
+    VerticalLayout {
+      alignment: center;
+      spacing: 30px;
+
+      // ---------------- Coverflow carousel ----------------
+      Rectangle {
+        height: 600px;
+        width: 100%;
+        clip: true; // Oculta las imágenes que salen de la pantalla
+
+        layout := HorizontalLayout {
+          // No usamos 'alignment: center' para poder mover el 'x' libremente
+          spacing: 20px;
+
+          // Magia del carrusel: calculamos la posición exacta para centrar el elemento activo
+          // (Mitad de pantalla) - (Mitad del item activo) - (Suma de los items anteriores y sus márgenes)
+          x: (parent.width / 2) - 300px - (root.active-index * 270px);
+
+          // Animamos el movimiento del carrusel de izquierda a derecha
+          animate x {
+          duration: 350ms;
+          easing: ease-out;
+          }
+
+          for wp[i] in root.wallpapers : Rectangle {
+            property <bool> is-active: i == root.active-index;
+            property <bool> matches: wp.visible;
+
+            // Dimensiones más grandes adaptadas a 1080p
+            width: !matches ? 0px : (is-active ? 600px : 250px);
+            height: !matches ? 0px : (is-active ? 450px : 350px);
+            opacity: !matches ? 0.0 : (is-active ? 1.0 : 0.45);
+            y: is-active ? 0px : 50px;
+
+            // Animamos el tamaño al seleccionarse
+            animate width, height, opacity, y {
+            duration: 320ms;
+            easing: ease-out;
+            }
+
+            border-width: is-active ? 3px : 0px;
+            border-color: #cccccc;
+            border-radius: 12px;
+            clip: true;
+
+            Image {
+              source: wp.image_path;
+              width: 100%;
+              height: 100%;
+              image-fit: cover;
+              }
+
+            TouchArea {
+              clicked => {
+                root.active-index = i;
+                root.wallpaper-selected(wp.name);
+                }
+              mouse-cursor: pointer;
+              }
+            }
+          }
+        }
+
+      // ---------------- Status / notification pill ----------------
+      HorizontalLayout {
+        alignment: center;
+        Rectangle {
+          visible: root.status-text != "";
+          background: #1c1c20cc;
+          border-radius: 10px;
+          border-width: 1px;
+          border-color: #333333;
+          height: 32px;
+          HorizontalLayout {
+            padding: 8px;
+            Text {
+              text: root.status-text;
+              color: #eeeeee;
+              font-size: 12px;
+              font-weight: 700;
+              }
+            }
+          }
+        }
+
+      // ---------------- Bottom bar: filters + search ----------------
+      HorizontalLayout {
+        alignment: center;
+
+        Rectangle {
+          background: #1c1c20;
+          border-radius: 16px;
+          border-width: 1px;
+          border-color: #333333;
+
+          HorizontalLayout {
+            spacing: 10px;
+            padding: 10px;
+
+            for fb in root.filter-buttons : Rectangle {
+              property <bool> is-current: root.current-filter == fb.name;
+              width: fb.is-swatch ? 24px : 44px;
+              height: 24px;
+              border-radius: fb.is-swatch ? 12px : 6px;
+              background: fb.is-swatch ? fb.color : (is-current ? #444444 : #2a2a2e);
+              border-width: is-current ? 2px : 0px;
+              border-color: white;
+              animate border-width { duration: 150ms; }
+
+              Text {
+                visible: !fb.is-swatch;
+                text: fb.name;
+                color: white;
+                font-size: 10px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                }
+
+              touch-filter := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.set-filter(fb.name); }
+                }
+              }
+
+            // Search box
+            Rectangle {
+              width: root.search-mode ? 220px : 32px;
+              height: 32px;
+              border-radius: 8px;
+              background: root.search-mode ? #2a2a2e : transparent;
+              border-width: 1px;
+              border-color: root.search-mode ? white : #555555;
+              clip: true;
+              animate width { duration: 300ms; easing: ease-out; }
+
+              HorizontalLayout {
+                padding: 6px;
+                spacing: 4px;
+                Text {
+                  text: "🔍";
+                  font-size: 14px;
+                  vertical-alignment: center;
+                  }
+                search-input := TextInput {
+                  visible: root.search-mode;
+                  text: root.search-text;
+                  color: white;
+                  font-size: 13px;
+                  vertical-alignment: center;
+                  edited => {
+                    root.search-text = self.text;
+                    root.search-changed(self.text);
+                    }
+                  accepted => {
+                    key-handler.focus();
+                    }
+                  }
+                }
+
+              TouchArea {
+                enabled: !root.search-mode;
+                mouse-cursor: pointer;
+                clicked => {
+                  root.toggle-search();
+                  search-input.focus();
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
