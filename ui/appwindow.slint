@@ -1,7 +1,7 @@
 export struct WallpaperData {
   name: string,
   image_path: image,
-}
+  }
 
 export component AppWindow inherits Window {
   title: "bgselector-gui";
@@ -25,28 +25,28 @@ export component AppWindow inherits Window {
       // Move back: Left arrow, "h" key, or Shift+Tab (Backtab)
       if (event.text == Key.LeftArrow || event.text == "h" || event.text == Key.Backtab || (event.text == Key.Tab && event.modifiers.shift)) {
         root.step-requested(-1);
-        accept
-      } 
+        accept;
+        } 
       // Move forward: Right arrow, "l" key, or Tab
       else if (event.text == Key.RightArrow || event.text == "l" || event.text == Key.Tab) {
         root.step-requested(1);
-        accept
-      } 
+        accept;
+        } 
       else if (event.text == Key.Return) {
         if (root.active-index >= 0 && root.active-index < root.wallpapers.length) {
           root.wallpaper-selected(root.wallpapers[root.active-index].name);
           root.close-requested();
-        }
-        accept
-      } 
+          }
+        accept;
+        } 
       else if (event.text == Key.Escape) {
         root.close-requested();
-        accept
-      } 
+        accept;
+        } 
       else {
-        reject
+        reject;
+        }
       }
-    }
 
     VerticalLayout {
       alignment: center;
@@ -58,52 +58,45 @@ export component AppWindow inherits Window {
 
         HorizontalLayout {
           spacing: 0px; 
-          
+
           x: (parent.width / 2) - 480px - (root.active-index * 180px);
 
           animate x {
-            duration: 350ms;
-            easing: ease-out;
+          duration: 350ms;
+          easing: ease-out;
           }
 
           for wp[i] in root.wallpapers : Rectangle {
             property <bool> is-active: i == root.active-index;
-
             width: is-active ? 960px : 180px;
-            height: is-active ? 540px : 420px; 
-            
-            opacity: is-active ? 1.0 : 1.0; 
-            
-            y: is-active ? 0px : 60px;
+            height: is-active ? 540px : 420px;
 
-            animate width, height, opacity, y {
-              duration: 320ms;
-              easing: ease-out;
+            y: (700px - self.height) / 2;
+            animate width, height, y {
+                duration: 200ms;
+                easing: ease-out;
             }
-
             border-width: is-active ? 4px : 1px;
             border-color: is-active ? #ffffff : #ffffff44;
             border-radius: 16px;
             clip: true;
-
             Image {
               source: wp.image_path;
               width: 100%;
               height: 100%;
               image-fit: cover;
-            }
-
+              }
             TouchArea {
               clicked => {
                 root.active-index = i;
                 root.wallpaper-selected(wp.name);
                 root.close-requested();
-              }
+                }
               mouse-cursor: pointer;
+              }
             }
           }
         }
       }
     }
   }
-}
