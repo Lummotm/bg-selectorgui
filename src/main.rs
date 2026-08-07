@@ -5,7 +5,7 @@ mod wallpaper;
 
 use rand::seq::SliceRandom;
 use std::{env, fs, process};
-use wallpaper::{generate_thumbnail, scan_wallpapers};
+use wallpaper::scan_wallpapers;
 
 fn print_help() {
     println!("bgselector-gui - A fast and lightweight wallpaper picker.\n");
@@ -89,12 +89,6 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     if exit_after_cache {
-        eprintln!("Generating missing thumbnails...");
-        for wp in &wallpapers {
-            if !wp.thumb_cached {
-                generate_thumbnail(&wp.path, &thumbnail_dir);
-            }
-        }
         eprintln!("Thumbnails generated successfully. Exiting.");
         process::exit(0);
     }

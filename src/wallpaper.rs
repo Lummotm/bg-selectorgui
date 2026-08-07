@@ -9,7 +9,6 @@ pub struct Wallpaper {
     pub name: String,
     pub path: PathBuf,
     pub thumbnail_path: PathBuf,
-    pub thumb_cached: bool, // false => thumbnail_path is just the original image (placeholder)
 }
 
 fn thumb_path_for(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option<PathBuf> {
@@ -17,8 +16,9 @@ fn thumb_path_for(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option<PathBuf
     Some(thumbnail_dir.join(format!("thumb_{}.png", stem)))
 }
 
-/// Fast scan: no image decoding/resizing here. Uses cached thumb if present,
-/// otherwise falls back to the original path so the GUI has *something* to show.
+/// Scans the wallpaper folder and ensures every entry has a cached PNG
+/// thumbnail before returning. Slower on first run / after --reload,
+/// but the GUI always gets a ready-to-display thumbnail.
 pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper> {
     fs::create_dir_all(thumbnail_dir)
         .unwrap_or_else(|_| panic!("Could not create folder {}", thumbnail_dir.display()));
@@ -46,23 +46,22 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
         };
         let name = stem_str.to_string();
 
-        let (thumbnail_path, thumb_cached) = match thumb_path_for(path, thumbnail_dir) {
-            Some(thumb) if thumb.exists() => (thumb, true),
-            _ => (path.to_path_buf(), false),
+        let Some(thumbnail_path) = generate_thumbnail(path, thumbnail_dir) else {
+            eprintln!("Skipping {}: could not generate thumbnail", path.display());
+            continue;
         };
 
         wallpapers.push(Wallpaper {
             name,
             path: path.to_path_buf(),
             thumbnail_path,
-            thumb_cached,
         });
     }
     wallpapers
 }
 
-/// Slow part, meant to run off the UI thread. Generates a missing thumbnail
-/// and returns its path on success.
+/// Generates a missing thumbnail and returns its path. If it already
+/// exists, returns the cached path without touching the image crate.
 pub fn generate_thumbnail(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option<PathBuf> {
     let thumb_path = thumb_path_for(wallpaper_path, thumbnail_dir)?;
 

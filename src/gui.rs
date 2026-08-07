@@ -1,6 +1,6 @@
 use crate::backend::process_selection;
-use crate::wallpaper::{generate_thumbnail, Wallpaper};
-use std::{cell::RefCell, path::PathBuf, rc::Rc, sync::mpsc, thread};
+use crate::wallpaper::Wallpaper;
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 // Slint imports
 use slint::{Image, Model, ModelRc, SharedString, VecModel};
@@ -20,16 +20,11 @@ fn step_active_index(state: &UiState, current: i32, direction: i32) -> i32 {
     ((current + direction) % len + len) % len
 }
 
-pub fn run(wallpapers: Vec<Wallpaper>, thumbnail_dir: PathBuf) -> Result<(), slint::PlatformError> {
+pub fn run(
+    wallpapers: Vec<Wallpaper>,
+    _thumbnail_dir: PathBuf,
+) -> Result<(), slint::PlatformError> {
     let app = AppWindow::new()?;
-
-    // Kick off background thumbnail generation for anything not cached yet.
-    let pending: Vec<(usize, PathBuf)> = wallpapers
-        .iter()
-        .enumerate()
-        .filter(|(_, wp)| !wp.thumb_cached)
-        .map(|(i, wp)| (i, wp.path.clone()))
-        .collect();
 
     let state = Rc::new(RefCell::new(UiState {
         all_wallpapers: wallpapers,
@@ -50,44 +45,6 @@ pub fn run(wallpapers: Vec<Wallpaper>, thumbnail_dir: PathBuf) -> Result<(), sli
 
     let model = Rc::new(VecModel::from(items));
     app.set_wallpapers(ModelRc::from(model.clone()));
-
-    if !pending.is_empty() {
-        let (tx, rx) = mpsc::channel::<(usize, PathBuf)>();
-
-        // Generate thumbnails one by one on a background thread.
-        thread::spawn(move || {
-            for (index, path) in pending {
-                if let Some(thumb) = generate_thumbnail(&path, &thumbnail_dir) {
-                    let _ = tx.send((index, thumb));
-                }
-            }
-        });
-
-        // Poll the channel from the UI thread and patch the model in place.
-        let model_weak = Rc::downgrade(&model);
-        let state_weak = Rc::downgrade(&state);
-        let timer = slint::Timer::default();
-        timer.start(
-            slint::TimerMode::Repeated,
-            std::time::Duration::from_millis(150),
-            move || {
-                let (Some(model), Some(state)) = (model_weak.upgrade(), state_weak.upgrade())
-                else {
-                    return;
-                };
-                while let Ok((index, thumb_path)) = rx.try_recv() {
-                    if let Some(mut row) = model.row_data(index) {
-                        row.image_path = Image::load_from_path(&thumb_path).unwrap_or_default();
-                        model.set_row_data(index, row);
-                    }
-                    if let Some(wp) = state.borrow_mut().all_wallpapers.get_mut(index) {
-                        wp.thumbnail_path = thumb_path;
-                        wp.thumb_cached = true;
-                    }
-                }
-            },
-        );
-    }
 
     {
         let state = state.clone();
