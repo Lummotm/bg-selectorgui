@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 slint = { version = "1.17.1", default-features = false, features = ["compat-1-2", "backend-winit-wayland", "renderer-femtovg"] }
-image = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp"] }
+image = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp","gif"] }
 dirs = "5.0"
 walkdir = "2.5.0"
 rand = "0.10.2"
