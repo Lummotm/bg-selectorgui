@@ -17,10 +17,12 @@ fn thumb_path_for(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option<PathBuf
     Some(thumbnail_dir.join(format!("thumb_{}.png", stem)))
 }
 
-/// Scans the wallpaper folder and ensures every entry has a cached PNG
-/// thumbnail before returning. Slower on first run / after --reload,
-/// but the GUI always gets a ready-to-display thumbnail.
-pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper> {
+pub fn scan_wallpapers(
+    target_dir: &Path,
+    thumbnail_dir: &Path,
+    thumb_width: u32,
+    thumb_height: u32,
+) -> Vec<Wallpaper> {
     fs::create_dir_all(thumbnail_dir)
         .unwrap_or_else(|_| panic!("Could not create folder {}", thumbnail_dir.display()));
 
@@ -38,7 +40,6 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
         let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
             continue;
         };
-        // No need to asign memory
         if !valid_formats
             .iter()
             .any(|&fmt| ext.eq_ignore_ascii_case(fmt))
@@ -64,7 +65,9 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
             }
         }
 
-        let Some(thumbnail_path) = generate_thumbnail(path, thumbnail_dir) else {
+        let Some(thumbnail_path) =
+            generate_thumbnail(path, thumbnail_dir, thumb_width, thumb_height)
+        else {
             eprintln!("Skipping {}: could not generate thumbnail", path.display());
             continue;
         };
@@ -86,9 +89,12 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
     wallpapers
 }
 
-/// Generates a missing thumbnail and returns its path. If it already
-/// exists, returns the cached path without touching the image crate.
-pub fn generate_thumbnail(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option<PathBuf> {
+pub fn generate_thumbnail(
+    wallpaper_path: &Path,
+    thumbnail_dir: &Path,
+    width: u32,
+    height: u32,
+) -> Option<PathBuf> {
     let thumb_path = thumb_path_for(wallpaper_path, thumbnail_dir)?;
 
     if thumb_path.exists() {
@@ -96,26 +102,28 @@ pub fn generate_thumbnail(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option
     }
 
     let img = image::open(wallpaper_path).ok()?;
-    let thumb = img.thumbnail(854, 480);
+    let thumb = img.thumbnail(width, height);
     thumb.save(&thumb_path).ok()?;
-
-    println!("Thumbnail generated on {}", thumb_path.display());
+    println!(
+        "Generated thumbnail of dimensions {}x{} at {}",
+        width,
+        height,
+        thumb_path.display()
+    );
 
     Some(thumb_path)
 }
 
 fn send_notification(summary: &str, body: &str) {
-    // Try to run notify-send
     let result = Command::new("notify-send")
         .arg("-a")
-        .arg("bgselector") // App name
+        .arg("bgselector")
         .arg("-i")
-        .arg("image-loading") // Optional icon
+        .arg("image-loading")
         .arg(summary)
         .arg(body)
         .status();
 
-    // If notify-send fails or is missing, fall back to printing to the console
     if result.is_err() || !result.unwrap().success() {
         eprintln!("[bgselector] {}: {}", summary, body);
     }

@@ -1,4 +1,3 @@
-// Based on https://github.com/magetsu002/qs-wallpaper-picker
 mod backend;
 mod gui;
 mod wallpaper;
@@ -13,13 +12,15 @@ fn print_help() {
     println!("USAGE:");
     println!("  bgselector [OPTIONS]\n");
     println!("OPTIONS:");
-    println!("  -h, --help           Print help information and exit.");
-    println!("  -v, --version        Print version information and exit.");
-    println!("  --dir <path>         Specify custom wallpaper directory.");
-    println!("                       (Default: ~/Pictures/Wallpapers/)");
-    println!("  --reload             Delete thumbnail cache and regenerate on start.");
-    println!("  --cache              Update thumbnails without launching GUI.");
-    println!("  --no-shuffle         Disable random wallpaper order (keep alphabetical).");
+    println!("  -h, --help               Print help information and exit.");
+    println!("  -v, --version            Print version information and exit.");
+    println!("  --dir <path>             Specify custom wallpaper directory.");
+    println!("                           (Default: ~/Pictures/Wallpapers/)");
+    println!("  --thumb <width> <height> Specify custom thumbnail dimensions.");
+    println!("                           (Default: 640 360)");
+    println!("  --reload                 Delete thumbnail cache and regenerate on start.");
+    println!("  --cache                  Update thumbnails without launching GUI.");
+    println!("  --no-shuffle             Disable random wallpaper order (keep alphabetical).");
 }
 
 fn main() -> Result<(), slint::PlatformError> {
@@ -32,6 +33,9 @@ fn main() -> Result<(), slint::PlatformError> {
     let mut wallpapers_dir = home.join("Pictures/Wallpapers/");
     let mut exit_after_cache = false;
     let mut shuffle_wallpapers = true;
+
+    let mut thumb_width: u32 = 640;
+    let mut thumb_height: u32 = 360;
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -62,6 +66,24 @@ fn main() -> Result<(), slint::PlatformError> {
                     process::exit(1);
                 }
             }
+            "--thumb" => {
+                let w = args.next().and_then(|val| val.parse::<u32>().ok());
+                let h = args.next().and_then(|val| val.parse::<u32>().ok());
+
+                if let (Some(w), Some(h)) = (w, h) {
+                    thumb_width = w;
+                    thumb_height = h;
+                    eprintln!(
+                        "Custom thumbnail size set to: {}x{}",
+                        thumb_width, thumb_height
+                    );
+                } else {
+                    eprintln!(
+                        "Error: The --thumb flag requires two numeric arguments: <width> <height>"
+                    );
+                    process::exit(1);
+                }
+            }
             unknown => {
                 eprintln!("Unknown argument: {unknown}");
                 eprintln!("Use --help to see available options.");
@@ -71,7 +93,9 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     fs::create_dir_all(&thumbnail_dir).expect("CRITICAL: Could not create cache folder");
-    let mut wallpapers = scan_wallpapers(&wallpapers_dir, &thumbnail_dir);
+
+    let mut wallpapers =
+        scan_wallpapers(&wallpapers_dir, &thumbnail_dir, thumb_width, thumb_height);
 
     if wallpapers.is_empty() {
         eprintln!("No images found in the wallpapers folder.");
