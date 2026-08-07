@@ -78,7 +78,9 @@ fn main() -> Result<(), slint::PlatformError> {
             "--dir" => {
                 if let Some(custom_dir) = args.get(i + 1) {
                     wallpapers_dir = std::path::PathBuf::from(custom_dir);
-                    println!("Wallpaper directory set to: {}", wallpapers_dir.display());
+                    if !print_only {
+                        println!("Wallpaper directory set to: {}", wallpapers_dir.display());
+                    }
                     i += 1;
                 } else {
                     eprintln!("Error: The --dir flag requires a path argument.");
@@ -113,5 +115,5 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     // Launch UI
-    gui::run(wallpapers, print_only, custom_cmd)
+    gui::run(wallpapers, print_only, custom_cmd, thumbnail_dir)
 }
