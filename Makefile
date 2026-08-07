@@ -1,35 +1,25 @@
-# Variables de configuración
+# Configuration variables
 BINARY_NAME := bgselector-gui
 BUILD_PATH := target/release/$(BINARY_NAME)
-INSTALL_DIR := $(HOME)/bin/pickers/bgselector
+INSTALL_PATH := $(HOME)/bin/pickers/bgselector/$(BINARY_NAME)
 
-.PHONY: all build optimize install clean help
+.PHONY: all build install clean help
 
-all: build optimize
+all: build
 
 build:
 	cargo build --release
 
-optimize: build
-	@if command -v upx; then \
-		echo "Comprimiendo binario con UPX..."; \
-		upx --best --ultra-brute $(BUILD_PATH) || true; \
-	else \
-		echo "UPX no está instalado, omitiendo optimización."; \
-	fi
-	@echo "Tamaño del binario:"
-	@du -h $(BUILD_PATH)
-
-install: all
+install: build
 	mkdir -p $(INSTALL_DIR)
-	install -m 755 $(BUILD_PATH) $(INSTALL_DIR)/$(BINARY_NAME)
-	@echo "Instalado con éxito en: $(INSTALL_DIR)/$(BINARY_NAME)"
+	cp $(BUILD_PATH) $(INSTALL_PATH)
+	@echo "Installed successfully to: $(INSTALL_PATH)
 
 clean:
 	cargo clean
 
 help:
-	@echo "Comandos disponibles:"
-	@echo "  make         - Compila en release y comprime con UPX"
-	@echo "  make install - Compila, comprime e instala en $(INSTALL_DIR)"
-	@echo "  make clean   - Borra artifacts de compilacion"
+	@echo "Available commands:"
+	@echo "  make         - Build in release mode"
+	@echo "  make install - Build and install to $(INSTALL_DIR)"
+	@echo "  make clean   - Remove build artifacts"
