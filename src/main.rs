@@ -5,19 +5,18 @@ mod wallpaper;
 
 use rand::seq::SliceRandom;
 use std::{env, fs, process};
-use wallpaper::scan_wallpapers;
+use wallpaper::{generate_thumbnail, scan_wallpapers};
 
 fn print_help() {
     println!("bgselector-gui - A fast and lightweight wallpaper picker.\n");
+    println!("Returns the path of the selected wallpaper.\n");
     println!("USAGE:");
     println!("  bgselector-gui [OPTIONS]\n");
     println!("OPTIONS:");
     println!("  -h, --help           Print help information and exit.");
     println!("  -v, --version        Print version information and exit.");
-    println!("  -p, --print          Print selected wallpaper path to stdout and exit.");
-    println!("  -e, --exec <cmd>     Execute custom command/script passing selected image path.");
     println!("  --dir <path>         Specify custom wallpaper directory.");
-    println!("                       (Default: ~/Pictures/Wallpapers/00-tmp/)");
+    println!("                       (Default: ~/Pictures/Wallpapers/)");
     println!("  --reload             Delete thumbnail cache and regenerate on start.");
     println!("  --cache              Update thumbnails without launching GUI.");
     println!("  --no-shuffle         Disable random wallpaper order (keep alphabetical).");
@@ -31,12 +30,10 @@ fn main() -> Result<(), slint::PlatformError> {
     let thumbnail_dir = cache_dir.join("thumbnails/");
 
     let home = dirs::home_dir().expect("CRITICAL: HOME not found");
-    let mut wallpapers_dir = home.join("Pictures/Wallpapers/00-tmp/");
+    let mut wallpapers_dir = home.join("Pictures/Wallpapers/");
 
     let mut exit_after_cache = false;
     let mut shuffle_wallpapers = true;
-    let mut print_only = false;
-    let mut custom_cmd: Option<String> = None;
 
     let args: Vec<String> = env::args().collect();
 
@@ -52,24 +49,12 @@ fn main() -> Result<(), slint::PlatformError> {
                 println!("bgselector-gui version {}", env!("CARGO_PKG_VERSION"));
                 process::exit(0);
             }
-            "-p" | "--print" => {
-                print_only = true;
-            }
-            "-e" | "--exec" => {
-                if let Some(cmd) = args.get(i + 1) {
-                    custom_cmd = Some(cmd.clone());
-                    i += 1;
-                } else {
-                    eprintln!("Error: The --exec flag requires a command/script path argument.");
-                    process::exit(1);
-                }
-            }
             "--reload" => {
-                println!("Regenerating all cache.");
+                eprintln!("Regenerating all cache.");
                 let _ = fs::remove_dir_all(&thumbnail_dir);
             }
             "--cache" => {
-                println!("Update thumbnails without launching GUI.");
+                eprintln!("Update thumbnails without launching GUI.");
                 exit_after_cache = true;
             }
             "--no-shuffle" => {
@@ -78,9 +63,7 @@ fn main() -> Result<(), slint::PlatformError> {
             "--dir" => {
                 if let Some(custom_dir) = args.get(i + 1) {
                     wallpapers_dir = std::path::PathBuf::from(custom_dir);
-                    if !print_only {
-                        println!("Wallpaper directory set to: {}", wallpapers_dir.display());
-                    }
+                    eprintln!("Wallpaper directory set to: {}", wallpapers_dir.display());
                     i += 1;
                 } else {
                     eprintln!("Error: The --dir flag requires a path argument.");
@@ -106,7 +89,13 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     if exit_after_cache {
-        println!("Thumbnails generated successfully. Exiting.");
+        eprintln!("Generating missing thumbnails...");
+        for wp in &wallpapers {
+            if !wp.thumb_cached {
+                generate_thumbnail(&wp.path, &thumbnail_dir);
+            }
+        }
+        eprintln!("Thumbnails generated successfully. Exiting.");
         process::exit(0);
     }
 
@@ -115,5 +104,5 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     // Launch UI
-    gui::run(wallpapers, print_only, custom_cmd, thumbnail_dir)
+    gui::run(wallpapers, thumbnail_dir)
 }

@@ -71,7 +71,7 @@ pub fn generate_thumbnail(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option
     }
 
     let img = image::open(wallpaper_path).ok()?;
-    let thumb = img.thumbnail(640, 360);
+    let thumb = img.thumbnail(854, 480);
     thumb.save(&thumb_path).ok()?;
 
     println!("Thumbnail generated on {}", thumb_path.display());

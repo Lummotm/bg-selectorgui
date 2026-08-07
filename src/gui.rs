@@ -10,8 +10,6 @@ slint::include_modules!();
 
 struct UiState {
     all_wallpapers: Vec<Wallpaper>,
-    print_only: bool,
-    custom_cmd: Option<String>,
 }
 
 fn step_active_index(state: &UiState, current: i32, direction: i32) -> i32 {
@@ -22,12 +20,7 @@ fn step_active_index(state: &UiState, current: i32, direction: i32) -> i32 {
     ((current + direction) % len + len) % len
 }
 
-pub fn run(
-    wallpapers: Vec<Wallpaper>,
-    print_only: bool,
-    custom_cmd: Option<String>,
-    thumbnail_dir: PathBuf,
-) -> Result<(), slint::PlatformError> {
+pub fn run(wallpapers: Vec<Wallpaper>, thumbnail_dir: PathBuf) -> Result<(), slint::PlatformError> {
     let app = AppWindow::new()?;
 
     // Kick off background thumbnail generation for anything not cached yet.
@@ -40,8 +33,6 @@ pub fn run(
 
     let state = Rc::new(RefCell::new(UiState {
         all_wallpapers: wallpapers,
-        print_only,
-        custom_cmd,
     }));
 
     let items: Vec<WallpaperData> = state
@@ -107,7 +98,7 @@ pub fn run(
                 .iter()
                 .find(|w| w.name == selected_name.as_str())
             {
-                process_selection(wp, state.print_only, state.custom_cmd.as_deref());
+                process_selection(wp);
             }
         });
     }
