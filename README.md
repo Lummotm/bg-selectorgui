@@ -67,6 +67,32 @@ swww img "$(bgselector)"
 hyprctl hyprpaper wallpaper ",$(bgselector)"
 ```
 
+## Recommended window manager rules
+
+It's recommended to let the picker fill the whole screen and hide its border. For **niri**, add a rule like this to `~/.config/niri/config.kdl`:
+
+```kdl
+window-rule {
+  match title="bgselector"
+
+  default-column-width { proportion 1.0; }
+  default-window-height { proportion 1.0; }
+  border {
+    width 0
+  }
+}
+```
+
+For **hyprland**, the equivalent in `~/.config/hypr/hyprland.conf`:
+
+```conf
+windowrulev2 = size 100% 100%, title:^(bgselector)$
+windowrulev2 = noborder, title:^(bgselector)$
+windowrulev2 = noinitialfocus, title:^(bgselector)$
+```
+
+There are other ways to do this on both WMs; these are just starting points.
+
 ## How it works
 
 1. Scans the wallpaper directory recursively for supported image formats.
