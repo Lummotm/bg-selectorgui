@@ -26,20 +26,15 @@ fn main() -> Result<(), slint::PlatformError> {
     let cache_dir = dirs::cache_dir()
         .expect("CRITICAL: Cache directory not found")
         .join("bgselector/");
-
     let thumbnail_dir = cache_dir.join("thumbnails/");
-
     let home = dirs::home_dir().expect("CRITICAL: HOME not found");
-    let mut wallpapers_dir = home.join("Pictures/Wallpapers/");
 
+    let mut wallpapers_dir = home.join("Pictures/Wallpapers/");
     let mut exit_after_cache = false;
     let mut shuffle_wallpapers = true;
 
-    let args: Vec<String> = env::args().collect();
-
-    let mut i = 1;
-    while i < args.len() {
-        let arg = &args[i];
+    let mut args = env::args().skip(1);
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "-h" | "--help" => {
                 print_help();
@@ -57,30 +52,25 @@ fn main() -> Result<(), slint::PlatformError> {
                 eprintln!("Update thumbnails without launching GUI.");
                 exit_after_cache = true;
             }
-            "--no-shuffle" => {
-                shuffle_wallpapers = false;
-            }
+            "--no-shuffle" => shuffle_wallpapers = false,
             "--dir" => {
-                if let Some(custom_dir) = args.get(i + 1) {
+                if let Some(custom_dir) = args.next() {
                     wallpapers_dir = std::path::PathBuf::from(custom_dir);
                     eprintln!("Wallpaper directory set to: {}", wallpapers_dir.display());
-                    i += 1;
                 } else {
                     eprintln!("Error: The --dir flag requires a path argument.");
                     process::exit(1);
                 }
             }
             unknown => {
-                eprintln!("Unknown argument: {}", unknown);
+                eprintln!("Unknown argument: {unknown}");
                 eprintln!("Use --help to see available options.");
                 process::exit(1);
             }
         }
-        i += 1;
     }
 
     fs::create_dir_all(&thumbnail_dir).expect("CRITICAL: Could not create cache folder");
-
     let mut wallpapers = scan_wallpapers(&wallpapers_dir, &thumbnail_dir);
 
     if wallpapers.is_empty() {
@@ -97,6 +87,5 @@ fn main() -> Result<(), slint::PlatformError> {
         wallpapers.shuffle(&mut rand::rng());
     }
 
-    // Launch UI
     gui::run(wallpapers, thumbnail_dir)
 }
