@@ -38,7 +38,11 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
         let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
             continue;
         };
-        if !valid_formats.contains(&ext.to_lowercase().as_str()) {
+        // No need to asign memory
+        if !valid_formats
+            .iter()
+            .any(|&fmt| ext.eq_ignore_ascii_case(fmt))
+        {
             continue;
         }
 
