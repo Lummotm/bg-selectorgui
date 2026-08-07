@@ -3,7 +3,7 @@ use crate::wallpaper::Wallpaper;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 // Slint imports
-use slint::{Image, Model, ModelRc, SharedString, VecModel};
+use slint::{Image, ModelRc, SharedString, VecModel};
 
 // Inject Slint generated code
 slint::include_modules!();

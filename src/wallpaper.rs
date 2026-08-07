@@ -1,6 +1,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command,
 };
 use walkdir::WalkDir;
 
@@ -26,6 +27,9 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
     let mut wallpapers = Vec::new();
     let valid_formats = ["jpg", "jpeg", "png", "webp", "gif"];
 
+    let mut notification_sent = false;
+    let mut new_cache_count = 0;
+
     for entry in WalkDir::new(target_dir).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         if !path.is_file() {
@@ -46,6 +50,16 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
         };
         let name = stem_str.to_string();
 
+        if let Some(thumb_path) = thumb_path_for(path, thumbnail_dir) {
+            if !thumb_path.exists() {
+                if !notification_sent {
+                    send_notification("bgselector", "Generating thumbnail cache, please wait...");
+                    notification_sent = true;
+                }
+                new_cache_count += 1;
+            }
+        }
+
         let Some(thumbnail_path) = generate_thumbnail(path, thumbnail_dir) else {
             eprintln!("Skipping {}: could not generate thumbnail", path.display());
             continue;
@@ -57,6 +71,14 @@ pub fn scan_wallpapers(target_dir: &Path, thumbnail_dir: &Path) -> Vec<Wallpaper
             thumbnail_path,
         });
     }
+
+    if notification_sent {
+        send_notification(
+            "bgselector",
+            &format!("Cache ready ({} new images processed)", new_cache_count),
+        );
+    }
+
     wallpapers
 }
 
@@ -76,4 +98,21 @@ pub fn generate_thumbnail(wallpaper_path: &Path, thumbnail_dir: &Path) -> Option
     println!("Thumbnail generated on {}", thumb_path.display());
 
     Some(thumb_path)
+}
+
+fn send_notification(summary: &str, body: &str) {
+    // Try to run notify-send
+    let result = Command::new("notify-send")
+        .arg("-a")
+        .arg("bgselector") // App name
+        .arg("-i")
+        .arg("image-loading") // Optional icon
+        .arg(summary)
+        .arg(body)
+        .status();
+
+    // If notify-send fails or is missing, fall back to printing to the console
+    if result.is_err() || !result.unwrap().success() {
+        eprintln!("[bgselector] {}: {}", summary, body);
+    }
 }

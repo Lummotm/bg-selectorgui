@@ -8,10 +8,10 @@ use std::{env, fs, process};
 use wallpaper::scan_wallpapers;
 
 fn print_help() {
-    println!("bgselector-gui - A fast and lightweight wallpaper picker.\n");
+    println!("bgselector - A fast and lightweight wallpaper picker.\n");
     println!("Returns the path of the selected wallpaper.\n");
     println!("USAGE:");
-    println!("  bgselector-gui [OPTIONS]\n");
+    println!("  bgselector [OPTIONS]\n");
     println!("OPTIONS:");
     println!("  -h, --help           Print help information and exit.");
     println!("  -v, --version        Print version information and exit.");
@@ -25,7 +25,7 @@ fn print_help() {
 fn main() -> Result<(), slint::PlatformError> {
     let cache_dir = dirs::cache_dir()
         .expect("CRITICAL: Cache directory not found")
-        .join("bg-selector-gui/");
+        .join("bgselector/");
 
     let thumbnail_dir = cache_dir.join("thumbnails/");
 
@@ -46,7 +46,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 process::exit(0);
             }
             "-v" | "--version" => {
-                println!("bgselector-gui version {}", env!("CARGO_PKG_VERSION"));
+                println!("bgselector version {}", env!("CARGO_PKG_VERSION"));
                 process::exit(0);
             }
             "--reload" => {
