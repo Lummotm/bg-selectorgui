@@ -1,5 +1,5 @@
 # Configuration variables
-BINARY_NAME  := bgselector-gui
+BINARY_NAME  := bgselector
 BUILD_PATH   := target/release/$(BINARY_NAME)
 INSTALL_DIR  := $(HOME)/.local/libexec/
 INSTALL_PATH := $(INSTALL_DIR)/$(BINARY_NAME)
