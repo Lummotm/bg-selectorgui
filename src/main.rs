@@ -7,8 +7,7 @@ use std::{env, fs, process};
 use wallpaper::scan_wallpapers;
 
 fn print_help() {
-    println!("bgselector - A fast and lightweight wallpaper picker.\n");
-    println!("Returns the path of the selected wallpaper.\n");
+    println!("bgselector - A fast and lightweight wallpaper picker.\nReturns the path of the selected wallpaper.\n");
     println!("USAGE:");
     println!("  bgselector [OPTIONS]\n");
     println!("OPTIONS:");
@@ -18,7 +17,7 @@ fn print_help() {
     println!("                           (Default: ~/Pictures/Wallpapers/)");
     println!("  --thumb <width> <height> Specify custom thumbnail dimensions.");
     println!("                           (Default: 640 360)");
-    println!("  --reload                 Delete thumbnail cache and regenerate on start.");
+    println!("  --reload                 Delete thumbnail cache and regenerate.");
     println!("  --cache                  Update thumbnails without launching GUI.");
     println!("  --no-shuffle             Disable random wallpaper order (keep alphabetical).");
 }
@@ -51,6 +50,7 @@ fn main() -> Result<(), slint::PlatformError> {
             "--reload" => {
                 eprintln!("Regenerating all cache.");
                 let _ = fs::remove_dir_all(&thumbnail_dir);
+                exit_after_cache = true;
             }
             "--cache" => {
                 eprintln!("Update thumbnails without launching GUI.");
